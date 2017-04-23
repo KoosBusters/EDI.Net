@@ -596,7 +596,8 @@ namespace indice.Edi
             }
         }
 
-        private static void SerializeStructure(EdiWriter writer, Stack<EdiStructure> stack, EdiPathComparer structuralComparer = null) {
+        private static void SerializeStructure(EdiWriter writer, Stack<EdiStructure> stack, EdiPathComparer structuralComparer = null)
+        {
             structuralComparer = structuralComparer ?? new EdiPathComparer(writer.Grammar);
             var structure = stack.Peek();
             var properies = structure.GetOrderedProperties(structuralComparer);
@@ -608,15 +609,18 @@ namespace indice.Edi
                     var path = (EdiPath)writer.Path;
                     if (path.Segment != property.PathInfo.Segment ||
                         structuralComparer.Compare(path, property.PathInfo.PathInternal) > 0) {
+                        writer.ResetSegmentAndComponentCounters();
                         writer.WriteSegmentName(property.PathInfo.Segment);
                     }
 
                     while (structuralComparer.Compare(path, property.PathInfo.PathInternal) < 0) {
                         path = (EdiPath)writer.Path;
                         if (path.ElementIndex != property.PathInfo.ElementIndex)
-                            writer.WriteToken(EdiToken.ElementStart);
-                        else if (path.ComponentIndex != property.PathInfo.ComponentIndex)
-                            writer.WriteToken(EdiToken.ComponentStart);
+                        {
+                            writer.ResetUnwrittenComponentSeperatorCount();
+                            writer.AddSeperator(EdiToken.ElementStart);
+                        } else if (path.ComponentIndex != property.PathInfo.ComponentIndex)
+                            writer.AddSeperator(EdiToken.ComponentStart);
                     }
                     writer.WriteValue(value, property.ValueInfo.Picture, property.ValueInfo.Format);
                 } else {

@@ -78,6 +78,9 @@ namespace indice.Edi
         private Formatting _formatting;
         private CultureInfo _culture;
 
+        private int _unwrittenElementSeperatorCount = 0;
+        private int _unwrittenComponentSeperatorCount = 0;
+
         /// <summary>
         /// Gets the <see cref="IEdiGrammar"/> rules for use in the reader.
         /// </summary>
@@ -302,14 +305,6 @@ namespace indice.Edi
                     ValidationUtils.ArgumentNotNull(value, nameof(value));
                     WriteSegmentName(value.ToString());
                     break;
-                case EdiToken.ElementStart:
-                    InternalWriteStart(EdiToken.ElementStart, EdiContainerType.Element);
-                    WriteElementDelimiter();
-                    break;
-                case EdiToken.ComponentStart:
-                    InternalWriteStart(EdiToken.ComponentStart, EdiContainerType.Component);
-                    WriteComponentDelimiter();
-                    break;
                 case EdiToken.Integer:
                     ValidationUtils.ArgumentNotNull(value, nameof(value));
 #if !(PORTABLE || NETSTANDARD10)
@@ -355,6 +350,39 @@ namespace indice.Edi
                 default:
                     throw new ArgumentOutOfRangeException(nameof(token), token, "Unexpected token type.");
             }
+        }
+
+        public void AddSeperator(EdiToken token)
+        {
+            switch (token)
+            {
+                case EdiToken.ComponentStart:
+                    InternalWriteStart(EdiToken.ComponentStart, EdiContainerType.Component);
+                    _unwrittenComponentSeperatorCount++;
+                    break;
+                case EdiToken.ElementStart:
+                    InternalWriteStart(EdiToken.ElementStart, EdiContainerType.Element);
+                    _unwrittenElementSeperatorCount++;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException($"Unknown seperator token '{token}'", nameof(token));
+            }
+        }
+
+        public void ResetUnwrittenComponentSeperatorCount()
+        {
+            _unwrittenComponentSeperatorCount = 0;
+        }
+
+        public void ResetUnwrittenSegmentSeperatorCount()
+        {
+            _unwrittenElementSeperatorCount = 0;
+        }
+
+        public void ResetSegmentAndComponentCounters()
+        {
+            ResetUnwrittenSegmentSeperatorCount();
+            ResetUnwrittenComponentSeperatorCount();
         }
 
         /// <summary>
@@ -934,6 +962,7 @@ namespace indice.Edi
             if (value == null) {
                 WriteNull();
             } else {
+
 #if !(PORTABLE || NETSTANDARD10)
                 // this is here because adding a WriteValue(BigInteger) to EdiWriter will
                 // mean the user has to add a reference to System.Numerics.dll
@@ -1175,6 +1204,20 @@ namespace indice.Edi
         }
 
         internal void InternalWriteValue(EdiToken token) {
+
+            if (token != EdiToken.Null && token != EdiToken.None)
+            {
+                while (_unwrittenElementSeperatorCount > 0) {
+                    WriteElementDelimiter();
+                    _unwrittenElementSeperatorCount--;
+                }
+
+                while (_unwrittenComponentSeperatorCount > 0) {
+                    WriteComponentDelimiter();
+                    _unwrittenComponentSeperatorCount--;
+                }
+            }
+
             AutoComplete(token);
         }
 
