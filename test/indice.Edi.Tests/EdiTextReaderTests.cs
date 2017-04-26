@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using indice.Edi.Tests.Models.EdiFact01;
 using Xunit;
+using Interchange = indice.Edi.Tests.Models.Interchange;
 
 namespace indice.Edi.Tests
 {
@@ -690,6 +692,41 @@ namespace indice.Edi.Tests
             Assert.Equal(interchange.Trailer_Field1, 1);
             Assert.Equal(interchange.Trailer_Field2, "20170119101016");
         }
+        
+        [Fact]
+        [Trait(Traits.Tag, "EDIFact")]
+        [Trait(Traits.Issue, "#50")]
+        public void EdiFact_RST() {
+            var grammar = EdiGrammar.NewEdiFact();
+
+            var interchange = default(Interchange_RST);
+            using (var stream = Helpers.GetResourceStream("edifact.repeating.segments.edi")) {
+                interchange = new EdiSerializer().Deserialize<Interchange_RST>(new StreamReader(stream), grammar);
+            }
+
+            // first group of AAA segments (no childeren) is seperated from the second group of AAA by just the UNS segment
+            // the BBB segments are optional childeren of AAA (min: 0, max: 1)
+
+            Assert.Equal('D', interchange.Message.UNS.SectionIdentification);
+
+            //for (var i = 1; i <= interchange.Message.AAA_FIRST.Count; i++) {
+            //    var aaaFirstSection = interchange.Message.AAA_FIRST[i];
+            //    Assert.Equal(aaaFirstSection.AAAGroupSegmentOccurence, i);
+            //}
+
+            for (var i = 1; i <= interchange.Message.AAA_SECOND.Count; i++) {
+                var aaaSecondSection = interchange.Message.AAA_SECOND[i];
+                Assert.Equal(aaaSecondSection.AAAGroupSegmentOccurence, i);
+
+                if (i <= 3) {
+                    Assert.Equal(aaaSecondSection.BBB.BBBText1, "INSIDE");
+                    Assert.Equal(aaaSecondSection.BBB.BBBText2, "THE");
+                    Assert.Equal(aaaSecondSection.BBB.BBBText3, "AAA");
+                    Assert.Equal(aaaSecondSection.BBB.BBBText4, "SG");
+                    Assert.Equal(aaaSecondSection.BBB.BBBGroupSegmentOccurence, i);
+                }
+            }
+        }
 
         [Fact]
         [Trait(Traits.Tag, "EDIFact")]
@@ -718,6 +755,5 @@ namespace indice.Edi.Tests
             Assert.Equal("Z14", interchange.Message.IMD_Other.FieldB);
             Assert.Equal("Z07", interchange.Message.IMD_Other.FieldC);
         }
-
     }
 }
